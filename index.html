@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeWM Control Analysis — A Control-Theoretic Study of Latent-Space Planning</title>
+<meta name="description" content="Applying classical control theory to characterise the planning loop of LeWorldModel — stability, convergence, and the MPC structure of latent planning.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,700;1,9..144,300&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+
+/* ── RESET & BASE ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:      #0f0e0c;
+  --ink2:     #3a3830;
+  --ink3:     #7a7468;
+  --paper:    #f7f4ee;
+  --paper2:   #edeae3;
+  --paper3:   #e2ddd5;
+  --accent:   #c84b1f;
+  --accent2:  #1a5c8a;
+  --gold:     #b8860b;
+  --green:    #2d6a4f;
+  --rule:     rgba(15,14,12,0.12);
+  --serif:    'Fraunces', Georgia, serif;
+  --mono:     'DM Mono', monospace;
+  --sans:     'DM Sans', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE ────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.5;
+}
+
+/* ── NAV ──────────────────────────────────────────────────────────────── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 18px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--rule);
+  background: rgba(247,244,238,0.92);
+  backdrop-filter: blur(12px);
+}
+.nav-brand {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink3);
+  letter-spacing: 0.5px;
+}
+.nav-links {
+  display: flex;
+  gap: 32px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 13px;
+  color: var(--ink2);
+  text-decoration: none;
+  font-family: var(--sans);
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--accent); }
+
+/* ── HERO ─────────────────────────────────────────────────────────────── */
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-top: 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-left {
+  padding: 80px 64px 80px 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-kicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-kicker::before {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.hero h1 {
+  font-family: var(--serif);
+  font-size: clamp(38px, 4.5vw, 62px);
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  color: var(--ink);
+  margin-bottom: 28px;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 300;
+}
+
+.hero-desc {
+  font-size: 16px;
+  color: var(--ink2);
+  line-height: 1.75;
+  max-width: 460px;
+  margin-bottom: 40px;
+  font-weight: 300;
+}
+
+.hero-cta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+}
+.btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink2);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.hero-right {
+  position: relative;
+  overflow: hidden;
+  background: var(--ink);
+}
+.hero-right-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+/* Animated diagram sketch in hero right */
+.hero-diagram {
+  width: 100%;
+  max-width: 380px;
+  opacity: 0;
+  animation: fadeUp 1s ease 0.4s forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero-left > * {
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards;
+}
+.hero-left .hero-kicker  { animation-delay: 0.1s; }
+.hero-left h1            { animation-delay: 0.2s; }
+.hero-left .hero-desc    { animation-delay: 0.3s; }
+.hero-left .hero-cta     { animation-delay: 0.4s; }
+
+/* ── STATUS BAR ───────────────────────────────────────────────────────── */
+.status-bar {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 14px 80px;
+  display: flex;
+  gap: 48px;
+  align-items: center;
+  overflow-x: auto;
+}
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-item .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(247,244,238,0.45);
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.status-item .val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(247,244,238,0.85);
+}
+
+/* ── SECTION BASE ─────────────────────────────────────────────────────── */
+section { padding: 100px 80px; }
+section + section { border-top: 1px solid var(--rule); }
+
+.section-kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--ink3);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--serif);
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  margin-bottom: 20px;
+}
+.section-lead {
+  font-size: 16px;
+  color: var(--ink2);
+  font-weight: 300;
+  max-width: 640px;
+  line-height: 1.75;
+  margin-bottom: 56px;
+}
+
+/* ── ABOUT ────────────────────────────────────────────────────────────── */
+#about {
+  background: var(--paper);
+}
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: start;
+}
+.about-text p {
+  font-size: 16px;
+  color: var(--ink2);
+  font-weight: 300;
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+.about-text p:last-child { margin-bottom: 0; }
+
+.about-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.callout {
+  background: var(--paper2);
+  border-left: 3px solid var(--accent);
+  padding: 20px 24px;
+}
+.callout .callout-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.callout p {
+  font-size: 14px;
+  color: var(--ink2);
+  line-height: 1.6;
+  font-weight: 300;
+}
+
+/* ── RESEARCH QUESTIONS ───────────────────────────────────────────────── */
+#questions { background: var(--paper2); }
+
+.rq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rq-item {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 0;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  transition: background 0.2s;
+  cursor: default;
+}
+.rq-item:hover { background: #fff; }
+.rq-num {
+  padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  border-right: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+  padding-top: 28px;
+}
+.rq-content { padding: 24px 28px; }
+.rq-title {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+.rq-desc {
+  font-size: 14px;
+  color: var(--ink3);
+  font-weight: 300;
+  line-height: 1.65;
+}
+
+/* ── EVALUATION ───────────────────────────────────────────────────────── */
+#evaluation { background: var(--paper); }
+
+.eval-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  margin-bottom: 48px;
+}
+.eval-card {
+  background: var(--paper2);
+  padding: 28px;
+  border: 1px solid var(--rule);
+  transition: background 0.2s;
+}
+.eval-card:hover { background: var(--paper3); }
+.eval-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  margin-bottom: 14px;
+}
+.tag-testable { background: rgba(45,106,79,0.12); color: var(--green); }
+.tag-gap { background: rgba(200,75,31,0.1); color: var(--accent); }
+
+.eval-card-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.eval-card-mpc {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  margin-bottom: 10px;
+  letter-spacing: 0.3px;
+}
+.eval-card-desc {
+  font-size: 13px;
+  color: var(--ink2);
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+/* ── ASSUMPTIONS ──────────────────────────────────────────────────────── */
+#assumptions { background: var(--paper2); }
+
+.assumptions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.assumption-group {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 28px;
+}
+.assumption-group-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.assumption-group ol {
+  list-style: none;
+  counter-reset: assumption;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.assumption-group li {
+  counter-increment: assumption;
+  font-size: 13px;
+  color: var(--ink2);
+  font-weight: 300;
+  line-height: 1.5;
+  padding-left: 24px;
+  position: relative;
+}
+.assumption-group li::before {
+  content: counter(assumption);
+  position: absolute;
+  left: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  top: 2px;
+}
+
+/* ── ARTEFACTS ────────────────────────────────────────────────────────── */
+#artefacts { background: var(--paper); }
+
+.artefacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.artefact-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 20px 28px;
+  background: var(--paper2);
+  border: 1px solid var(--rule);
+  gap: 24px;
+  text-decoration: none;
+  color: var(--ink);
+  transition: background 0.15s;
+}
+.artefact-row:hover { background: var(--paper3); }
+.artefact-row .artefact-info { display: flex; flex-direction: column; gap: 4px; }
+.artefact-row .artefact-name {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.artefact-row .artefact-desc {
+  font-size: 13px;
+  color: var(--ink3);
+  font-weight: 300;
+}
+.artefact-row .artefact-type {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--ink3);
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+}
+.artefact-row .artefact-arrow {
+  font-size: 18px;
+  color: var(--ink3);
+  transition: transform 0.2s, color 0.2s;
+}
+.artefact-row:hover .artefact-arrow { transform: translateX(4px); color: var(--accent); }
+
+/* ── TIMELINE ─────────────────────────────────────────────────────────── */
+#timeline { background: var(--paper2); }
+
+.timeline {
+  position: relative;
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--rule);
+}
+.timeline-item {
+  position: relative;
+  padding: 0 0 32px 32px;
+}
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-dot {
+  position: absolute;
+  left: -26px;
+  top: 6px;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--paper2);
+}
+.dot-done   { background: var(--green); }
+.dot-active { background: var(--accent); animation: pulse 1.5s ease infinite; }
+.dot-todo   { background: var(--paper3); border-color: var(--rule); }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200,75,31,0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(200,75,31,0); }
+}
+
+.timeline-week {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--ink3);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.timeline-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.timeline-desc {
+  font-size: 14px;
+  color: var(--ink2);
+  font-weight: 300;
+  line-height: 1.65;
+  max-width: 640px;
+}
+
+/* ── FOOTER ───────────────────────────────────────────────────────────── */
+footer {
+  background: var(--ink);
+  color: rgba(247,244,238,0.5);
+  padding: 48px 80px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+footer .footer-brand {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(247,244,238,0.8);
+}
+footer .footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+footer .footer-links a {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(247,244,238,0.45);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  transition: color 0.2s;
+}
+footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
+
+/* ── RESPONSIVE ───────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; min-height: auto; }
+  .hero-right { height: 320px; }
+  .hero-left { padding: 60px 32px; }
+  section { padding: 64px 32px; }
+  nav { padding: 16px 24px; }
+  .status-bar { padding: 14px 32px; }
+  .about-grid, .eval-grid, .assumptions-grid { grid-template-columns: 1fr; }
+  footer { padding: 40px 32px; flex-direction: column; align-items: flex-start; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">lewm-control-analysis</div>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#questions">Research</a></li>
+    <li><a href="#evaluation">Evaluation</a></li>
+    <li><a href="#artefacts">Artefacts</a></li>
+    <li><a href="#timeline">Progress</a></li>
+    <li><a href="https://github.com" target="_blank">GitHub ↗</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-left">
+    <div class="hero-kicker">Open Research Project · 2026</div>
+    <h1>When does a world model <em>actually</em> control?</h1>
+    <p class="hero-desc">
+      LeWorldModel uses a planning loop inspired by Model Predictive Control.
+      This project applies classical control theory — stability, convergence, constraints —
+      to rigorously characterise what that loop actually does, and where it breaks.
+    </p>
+    <div class="hero-cta">
+      <a href="#about" class="btn btn-primary">Read the Proposal ↓</a>
+      <a href="https://github.com" class="btn btn-secondary" target="_blank">View Code</a>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="hero-right-inner">
+      <!-- Inline SVG block diagram sketch -->
+      <svg class="hero-diagram" viewBox="0 0 380 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- MPC column -->
+        <text x="80" y="28" font-family="DM Mono, monospace" font-size="10" fill="rgba(247,244,238,0.4)" letter-spacing="2" text-anchor="middle">CLASSICAL MPC</text>
+        <rect x="20" y="38" width="120" height="40" rx="2" stroke="rgba(88,166,255,0.6)" stroke-width="1.2" fill="rgba(88,166,255,0.07)"/>
+        <text x="80" y="63" font-family="DM Mono, monospace" font-size="9" fill="rgba(88,166,255,0.9)" text-anchor="middle">PLANT</text>
+        <line x1="80" y1="78" x2="80" y2="100" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="80,100 76,93 84,93" fill="#3fb950"/>
+        <rect x="20" y="100" width="120" height="40" rx="2" stroke="rgba(88,166,255,0.6)" stroke-width="1.2" fill="rgba(88,166,255,0.07)"/>
+        <text x="80" y="118" font-family="DM Mono, monospace" font-size="8" fill="rgba(88,166,255,0.9)" text-anchor="middle">KALMAN FILTER</text>
+        <text x="80" y="130" font-family="DM Mono, monospace" font-size="7" fill="rgba(88,166,255,0.5)" text-anchor="middle">x̂ ± Σ</text>
+        <line x1="80" y1="140" x2="80" y2="162" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="80,162 76,155 84,155" fill="#3fb950"/>
+        <rect x="20" y="162" width="120" height="40" rx="2" stroke="rgba(88,166,255,0.6)" stroke-width="1.2" fill="rgba(88,166,255,0.07)"/>
+        <text x="80" y="180" font-family="DM Mono, monospace" font-size="8" fill="rgba(88,166,255,0.9)" text-anchor="middle">PLANT MODEL</text>
+        <text x="80" y="192" font-family="DM Mono, monospace" font-size="7" fill="rgba(88,166,255,0.5)" text-anchor="middle">f(x,u) analytical</text>
+        <line x1="80" y1="202" x2="80" y2="224" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="80,224 76,217 84,217" fill="#3fb950"/>
+        <rect x="20" y="224" width="120" height="40" rx="2" stroke="rgba(88,166,255,0.6)" stroke-width="1.2" fill="rgba(88,166,255,0.07)"/>
+        <text x="80" y="242" font-family="DM Mono, monospace" font-size="8" fill="rgba(88,166,255,0.9)" text-anchor="middle">QP OPTIMIZER</text>
+        <text x="80" y="254" font-family="DM Mono, monospace" font-size="7" fill="rgba(88,166,255,0.5)" text-anchor="middle">+ hard constraints</text>
+        <line x1="80" y1="264" x2="80" y2="286" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="80,286 76,279 84,279" fill="#3fb950"/>
+        <rect x="20" y="286" width="120" height="40" rx="2" stroke="rgba(63,185,80,0.8)" stroke-width="1.2" fill="rgba(63,185,80,0.07)"/>
+        <text x="80" y="304" font-family="DM Mono, monospace" font-size="8" fill="rgba(63,185,80,0.9)" text-anchor="middle">MPC LOOP</text>
+        <text x="80" y="316" font-family="DM Mono, monospace" font-size="7" fill="rgba(63,185,80,0.5)" text-anchor="middle">receding horizon</text>
+        <!-- Feedback arc left side -->
+        <path d="M20,306 C-10,306 -10,58 20,58" stroke="#e3b341" stroke-width="1.2" fill="none" stroke-dasharray="4,3"/>
+        <polygon points="20,58 14,63 14,53" fill="#e3b341"/>
+        <text x="-18" y="190" font-family="DM Mono, monospace" font-size="8" fill="#e3b341" transform="rotate(-90,-18,190)">feedback</text>
+        <!-- Stability -->
+        <rect x="20" y="346" width="120" height="34" rx="2" stroke="rgba(63,185,80,0.6)" stroke-width="1.2" fill="rgba(63,185,80,0.05)"/>
+        <text x="80" y="367" font-family="DM Mono, monospace" font-size="8" fill="rgba(63,185,80,0.8)" text-anchor="middle">LYAPUNOV ✓</text>
+
+        <!-- LeWM column -->
+        <text x="300" y="28" font-family="DM Mono, monospace" font-size="10" fill="rgba(247,244,238,0.4)" letter-spacing="2" text-anchor="middle">LeWM</text>
+        <rect x="240" y="38" width="120" height="40" rx="2" stroke="rgba(63,185,80,0.6)" stroke-width="1.2" fill="rgba(63,185,80,0.07)"/>
+        <text x="300" y="63" font-family="DM Mono, monospace" font-size="9" fill="rgba(63,185,80,0.9)" text-anchor="middle">SIMULATOR ✓</text>
+        <line x1="300" y1="78" x2="300" y2="100" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="300,100 296,93 304,93" fill="#3fb950"/>
+
+        <!-- Missing estimator — dashed red -->
+        <rect x="240" y="100" width="120" height="40" rx="2" stroke="rgba(248,81,73,0.6)" stroke-width="1.2" stroke-dasharray="5,3" fill="rgba(248,81,73,0.05)"/>
+        <text x="300" y="116" font-family="DM Mono, monospace" font-size="8" fill="rgba(248,81,73,0.8)" text-anchor="middle">ViT ENCODER</text>
+        <text x="300" y="128" font-family="DM Mono, monospace" font-size="7" fill="rgba(248,81,73,0.5)" text-anchor="middle">no Σ, no fusion</text>
+        <line x1="300" y1="140" x2="300" y2="162" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="300,162 296,155 304,155" fill="#3fb950"/>
+
+        <!-- Predictor — partial yellow -->
+        <rect x="240" y="162" width="120" height="40" rx="2" stroke="rgba(210,153,34,0.7)" stroke-width="1.2" fill="rgba(210,153,34,0.06)"/>
+        <text x="300" y="180" font-family="DM Mono, monospace" font-size="8" fill="rgba(210,153,34,0.9)" text-anchor="middle">JEPA PREDICTOR</text>
+        <text x="300" y="192" font-family="DM Mono, monospace" font-size="7" fill="rgba(210,153,34,0.5)" text-anchor="middle">neural, no bounds</text>
+        <line x1="300" y1="202" x2="300" y2="224" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="300,224 296,217 304,217" fill="#3fb950"/>
+
+        <!-- CEM — partial yellow -->
+        <rect x="240" y="224" width="120" height="40" rx="2" stroke="rgba(210,153,34,0.7)" stroke-width="1.2" fill="rgba(210,153,34,0.06)"/>
+        <text x="300" y="242" font-family="DM Mono, monospace" font-size="8" fill="rgba(210,153,34,0.9)" text-anchor="middle">CEM OPTIMIZER</text>
+        <text x="300" y="254" font-family="DM Mono, monospace" font-size="7" fill="rgba(210,153,34,0.5)" text-anchor="middle">sampling, no guarantee</text>
+        <line x1="300" y1="264" x2="300" y2="286" stroke="#3fb950" stroke-width="1.2"/>
+        <polygon points="300,286 296,279 304,279" fill="#3fb950"/>
+
+        <!-- MPC loop — green -->
+        <rect x="240" y="286" width="120" height="40" rx="2" stroke="rgba(63,185,80,0.8)" stroke-width="1.2" fill="rgba(63,185,80,0.07)"/>
+        <text x="300" y="304" font-family="DM Mono, monospace" font-size="8" fill="rgba(63,185,80,0.9)" text-anchor="middle">MPC LOOP ✓</text>
+        <text x="300" y="316" font-family="DM Mono, monospace" font-size="7" fill="rgba(63,185,80,0.5)" text-anchor="middle">WorldModelPolicy</text>
+
+        <!-- Feedback arc right side -->
+        <path d="M360,306 C390,306 390,58 360,58" stroke="#e3b341" stroke-width="1.2" fill="none" stroke-dasharray="4,3"/>
+        <polygon points="360,58 366,63 366,53" fill="#e3b341"/>
+
+        <!-- Stability absent -->
+        <rect x="240" y="346" width="120" height="34" rx="2" stroke="rgba(248,81,73,0.5)" stroke-width="1.2" stroke-dasharray="5,3" fill="rgba(248,81,73,0.04)"/>
+        <text x="300" y="367" font-family="DM Mono, monospace" font-size="8" fill="rgba(248,81,73,0.7)" text-anchor="middle">NO GUARANTEE ✗</text>
+
+        <!-- Center divider -->
+        <line x1="190" y1="20" x2="190" y2="460" stroke="rgba(247,244,238,0.08)" stroke-width="1"/>
+
+        <!-- Correspondence lines -->
+        <line x1="140" y1="58" x2="240" y2="58" stroke="rgba(247,244,238,0.1)" stroke-width="1" stroke-dasharray="3,4"/>
+        <line x1="140" y1="140" x2="240" y2="140" stroke="rgba(247,244,238,0.1)" stroke-width="1" stroke-dasharray="3,4"/>
+        <line x1="140" y1="202" x2="240" y2="202" stroke="rgba(247,244,238,0.1)" stroke-width="1" stroke-dasharray="3,4"/>
+        <line x1="140" y1="264" x2="240" y2="264" stroke="rgba(247,244,238,0.1)" stroke-width="1" stroke-dasharray="3,4"/>
+        <line x1="140" y1="326" x2="240" y2="326" stroke="rgba(247,244,238,0.1)" stroke-width="1" stroke-dasharray="3,4"/>
+
+        <!-- Legend bottom -->
+        <circle cx="30" cy="430" r="4" fill="rgba(63,185,80,0.8)"/>
+        <text x="42" y="434" font-family="DM Mono, monospace" font-size="9" fill="rgba(247,244,238,0.45)">Direct</text>
+        <circle cx="100" cy="430" r="4" fill="rgba(210,153,34,0.8)"/>
+        <text x="112" y="434" font-family="DM Mono, monospace" font-size="9" fill="rgba(247,244,238,0.45)">Partial</text>
+        <circle cx="180" cy="430" r="4" fill="rgba(248,81,73,0.8)"/>
+        <text x="192" y="434" font-family="DM Mono, monospace" font-size="9" fill="rgba(247,244,238,0.45)">Absent</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="status-item">
+    <div class="status-dot" style="background:#3fb950"></div>
+    <span class="label">Status</span>
+    <span class="val">Active — Week 1</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" style="background:#58a6ff"></div>
+    <span class="label">Model</span>
+    <span class="val">LeWorldModel (15M params)</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" style="background:#d29922"></div>
+    <span class="label">Task</span>
+    <span class="val">Push-T · OGBench</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" style="background:#bc8cff"></div>
+    <span class="label">Assumptions</span>
+    <span class="val">19 identified</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" style="background:#f0883e"></div>
+    <span class="label">Eval Tests</span>
+    <span class="val">8 (5 testable, 3 gaps)</span>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="section-kicker">Background</div>
+  <h2 class="section-title">What is this project?</h2>
+  <div class="about-grid">
+    <div class="about-text">
+      <p>LeWorldModel (LeWM) is a compact, 15-million-parameter robot learning system that plans actions by imagining future states in a learned latent space. Its authors describe its planning loop as inspired by Model Predictive Control — a classical control technique with decades of theory behind it.</p>
+      <p>This project asks: what does that planning loop actually look like when you put it under a control-theory microscope? We map every component of a classical MPC block diagram onto its LeWM equivalent, identify what's present, what's approximate, and what's entirely absent.</p>
+      <p>The goal is not to critique LeWM — it performs strongly on benchmarks. The goal is to use control theory as an analytical lens to reveal properties that success rates alone cannot show: stability, convergence behaviour, constraint handling, and the conditions under which planning fails.</p>
+    </div>
+    <div class="about-aside">
+      <div class="callout">
+        <div class="callout-label">Key Finding</div>
+        <p>7 of 14 classical MPC components have no equivalent in LeWM. All three missing constraint mechanisms — hard input constraints, hard state constraints, and soft constraints — are structural gaps, not implementation choices.</p>
+      </div>
+      <div class="callout" style="border-color: var(--accent2)">
+        <div class="callout-label" style="color: var(--accent2)">Approach</div>
+        <p>We instrument the CEM planner with logging hooks and apply control-theoretic metrics directly — no retraining, no new model, no specialised hardware. Reproducible on a single consumer GPU.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESEARCH QUESTIONS -->
+<section id="questions">
+  <div class="section-kicker">Research Questions</div>
+  <h2 class="section-title">What we are investigating</h2>
+  <p class="section-lead">Five research questions, ordered from empirical to theoretical. The first four drive the experimental work; the fifth points toward future contributions.</p>
+
+  <div class="rq-list">
+    <div class="rq-item">
+      <div class="rq-num">RQ1</div>
+      <div class="rq-content">
+        <div class="rq-title">Does latent distance meaningfully track physical progress toward the goal?</div>
+        <div class="rq-desc">The planner uses latent distance as its only metric of progress. If this distance can decrease while the robot moves away from the goal, the planner's core assumption is violated. We measure the correlation between latent progress and actual task completion across episodes.</div>
+      </div>
+    </div>
+    <div class="rq-item">
+      <div class="rq-num">RQ2</div>
+      <div class="rq-content">
+        <div class="rq-title">How does prediction error accumulate across planning rollouts?</div>
+        <div class="rq-desc">Every predicted latent state carries a small error. How does this error grow over a 10-step horizon? Does the planner visit ghost points — latent states with no real-world counterpart? At what horizon length does rollout drift become fatal?</div>
+      </div>
+    </div>
+    <div class="rq-item">
+      <div class="rq-num">RQ3</div>
+      <div class="rq-content">
+        <div class="rq-title">What are the convergence and stability properties of the MPC feedback loop?</div>
+        <div class="rq-desc">Does the system converge smoothly to the goal, or does it oscillate, overshoot, or stall? How quickly does it recover from external perturbations? How does performance degrade as a function of goal distance and horizon length?</div>
+      </div>
+    </div>
+    <div class="rq-item">
+      <div class="rq-num">RQ4</div>
+      <div class="rq-content">
+        <div class="rq-title">Which of the 19 implicit assumptions are most frequently violated?</div>
+        <div class="rq-desc">We enumerate 19 assumptions the LeWM planner makes implicitly. For each that is empirically testable, we design a targeted experiment. Which assumptions hold? Which break most often? Which violations correlate with planning failure?</div>
+      </div>
+    </div>
+    <div class="rq-item">
+      <div class="rq-num">RQ5</div>
+      <div class="rq-content">
+        <div class="rq-title">What constraints could be incorporated in latent space, and what would be gained?</div>
+        <div class="rq-desc">An exploratory question. Can hard or soft constraints be co-encoded in the latent representation? What form would a latent hard constraint take? Can the data manifold itself serve as a natural feasibility constraint? This question bridges empirical analysis to future theoretical work on safe robot deployment.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EVALUATION -->
+<section id="evaluation">
+  <div class="section-kicker">Evaluation Framework</div>
+  <h2 class="section-title">MATLAB MPC review tests — applied to LeWM</h2>
+  <p class="section-lead">The MATLAB MPC Toolbox runs eight standardised tests on any classical MPC controller. We use these as our evaluation basis — applying equivalent tests to LeWM and documenting the gaps where no equivalent exists.</p>
+
+  <div class="eval-grid">
+    <div class="eval-card">
+      <div class="eval-tag tag-testable">Testable — Day 1</div>
+      <div class="eval-card-mpc">MPC Object Creation</div>
+      <div class="eval-card-title">System Initialisation</div>
+      <div class="eval-card-desc">Checkpoint loads, CEM configures, get_cost executes without error. Binary pass/fail — the baseline sanity check.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-testable">Testable — Day 3</div>
+      <div class="eval-card-mpc">Closed-Loop Internal Stability</div>
+      <div class="eval-card-title">Trajectory Contraction</div>
+      <div class="eval-card-desc">For pairs of nearby starting states, do latent trajectories converge or diverge over time? Empirical analogue of eigenvalue analysis.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-testable">Testable — Day 3</div>
+      <div class="eval-card-mpc">Closed-Loop Nominal Stability</div>
+      <div class="eval-card-title">Latent Distance Convergence</div>
+      <div class="eval-card-desc">Plot latent distance to goal vs MPC timestep. Measure convergence rate, oscillation frequency, and failure-to-converge rate across episodes.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-testable">Testable — Day 3</div>
+      <div class="eval-card-mpc">Steady-State Gains</div>
+      <div class="eval-card-title">Terminal Latent Offset</div>
+      <div class="eval-card-desc">Measure latent distance at episode termination. Persistent non-zero distance = steady-state offset, the latent-space analogue of integral error.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-testable">Testable — Day 4</div>
+      <div class="eval-card-mpc">QP Hessian Validity</div>
+      <div class="eval-card-title">CEM Solution Consistency</div>
+      <div class="eval-card-desc">Run CEM 10× from different seeds on the same state. High variance in selected actions signals a multimodal landscape where sampling is unreliable.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-testable">Testable — Day 4</div>
+      <div class="eval-card-mpc">Soft Constraints</div>
+      <div class="eval-card-title">Manifold Drift via SIGReg</div>
+      <div class="eval-card-desc">Compute SIGReg Gaussian log-likelihood of each predicted latent. Track off-manifold drift fraction across rollout depth and episode outcome.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-gap">Gap — document only</div>
+      <div class="eval-card-mpc">Hard MV Constraints</div>
+      <div class="eval-card-title">No Rate Constraints</div>
+      <div class="eval-card-desc">LeWM has no mechanism for rate-of-change constraints on actions. Structural gap — not an implementation choice.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-gap">Gap — document only</div>
+      <div class="eval-card-mpc">Other Hard Constraints</div>
+      <div class="eval-card-title">No State Constraints</div>
+      <div class="eval-card-desc">No forbidden regions in latent or physical state space. Ghost points — off-manifold latents — are visited silently without penalty.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ASSUMPTIONS -->
+<section id="assumptions">
+  <div class="section-kicker">Implicit Assumptions</div>
+  <h2 class="section-title">19 assumptions the planner makes without stating them</h2>
+  <p class="section-lead">Structural analysis of the LeWM planning loop reveals 19 assumptions that are never formally stated in the paper. Each is a potential failure mode and a research question.</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-group">
+      <div class="assumption-group-title">State Space (A1–A3)</div>
+      <ol>
+        <li>Z is a sufficient statistic for planning</li>
+        <li>Data manifold is well-defined and stable</li>
+        <li>Latent distance ≈ physical progress</li>
+      </ol>
+    </div>
+    <div class="assumption-group">
+      <div class="assumption-group-title">Plant Model (A4–A6)</div>
+      <ol>
+        <li>Predictor is a good one-step approximation</li>
+        <li>Errors do not grow catastrophically</li>
+        <li>Dynamics are deterministic</li>
+      </ol>
+    </div>
+    <div class="assumption-group">
+      <div class="assumption-group-title">Encoder (A7–A9)</div>
+      <ol>
+        <li>Observations are clean and consistent</li>
+        <li>Each frame encodes independently</li>
+        <li>No sim-to-real gap</li>
+      </ol>
+    </div>
+    <div class="assumption-group">
+      <div class="assumption-group-title">Optimizer (A10–A12)</div>
+      <ol>
+        <li>CEM finds good solution in 30 iterations</li>
+        <li>300 samples adequately cover action space</li>
+        <li>Cost landscape is smooth enough for CEM</li>
+      </ol>
+    </div>
+    <div class="assumption-group">
+      <div class="assumption-group-title">Control Loop (A13–A16)</div>
+      <ol>
+        <li>Replanning every step is sufficient</li>
+        <li>Horizon of 10 steps is adequate</li>
+        <li>No constraints beyond action bounds</li>
+        <li>Goal fully specified by one image</li>
+      </ol>
+    </div>
+    <div class="assumption-group">
+      <div class="assumption-group-title">Stability (A17–A19)</div>
+      <ol>
+        <li>Closed loop converges to goal</li>
+        <li>Encoder and planning errors are independent</li>
+        <li>Warm starting improves performance</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ARTEFACTS -->
+<section id="artefacts">
+  <div class="section-kicker">Project Artefacts</div>
+  <h2 class="section-title">Documents, diagrams, and code</h2>
+  <p class="section-lead">All project outputs — updated as the research progresses.</p>
+
+  <div class="artefacts-list">
+    <a href="#" class="artefact-row">
+      <div class="artefact-info">
+        <div class="artefact-name">Project Proposal v2</div>
+        <div class="artefact-desc">Full research proposal including MPC mapping, 19 assumptions, and evaluation framework</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="artefact-type">PDF · June 2026</div>
+        <div class="artefact-arrow">→</div>
+      </div>
+    </a>
+    <a href="#" class="artefact-row">
+      <div class="artefact-info">
+        <div class="artefact-name">MPC vs LeWM Block Diagram</div>
+        <div class="artefact-desc">Architectural block diagram with signal flow, feedback loops, and colour-coded correspondence</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="artefact-type">HTML · Interactive</div>
+        <div class="artefact-arrow">→</div>
+      </div>
+    </a>
+    <a href="#" class="artefact-row">
+      <div class="artefact-info">
+        <div class="artefact-name">Reference Poster</div>
+        <div class="artefact-desc">Side-by-side component mapping, assumptions table, and evaluation framework in one view</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="artefact-type">HTML · Printable</div>
+        <div class="artefact-arrow">→</div>
+      </div>
+    </a>
+    <a href="https://github.com" class="artefact-row" target="_blank">
+      <div class="artefact-info">
+        <div class="artefact-name">Instrumentation Code</div>
+        <div class="artefact-desc">InstrumentedCEMSolver and logging hooks for the stable-worldmodel planning loop</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="artefact-type">GitHub · In progress</div>
+        <div class="artefact-arrow">→</div>
+      </div>
+    </a>
+  </div>
+</section>
+
+<!-- TIMELINE -->
+<section id="timeline">
+  <div class="section-kicker">Project Progress</div>
+  <h2 class="section-title">Week by week</h2>
+  <p class="section-lead">A living record of the investigation as it unfolds.</p>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="timeline-dot dot-done"></div>
+      <div class="timeline-week">Week 0 — Setup</div>
+      <div class="timeline-title">Conceptual foundation and proposal</div>
+      <div class="timeline-desc">MPC structural mapping, 19 implicit assumptions identified, evaluation framework derived from MATLAB MPC review tests. Proposal v2 completed.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot dot-active"></div>
+      <div class="timeline-week">Week 1 — In progress</div>
+      <div class="timeline-title">Environment setup and first measurement</div>
+      <div class="timeline-desc">Clone LeWM and stable-worldmodel repositories. Load pretrained checkpoint. Run vanilla CEM evaluation on Push-T. First plot: latent distance to goal vs MPC timestep.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot dot-todo"></div>
+      <div class="timeline-week">Week 2</div>
+      <div class="timeline-title">Prediction error instrumentation</div>
+      <div class="timeline-desc">Log one-step prediction error across episodes. Plot error accumulation curves. First characterisation of rollout drift.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot dot-todo"></div>
+      <div class="timeline-week">Week 3</div>
+      <div class="timeline-title">Convergence and stability analysis</div>
+      <div class="timeline-desc">Trajectory contraction measurement. Perturbation recovery experiments. Steady-state offset characterisation.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot dot-todo"></div>
+      <div class="timeline-week">Week 4</div>
+      <div class="timeline-title">Manifold drift and CEM reliability</div>
+      <div class="timeline-desc">SIGReg Gaussian likelihood logging. CEM seed variance analysis. Off-manifold fraction vs rollout depth.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot dot-todo"></div>
+      <div class="timeline-week">Week 5+</div>
+      <div class="timeline-title">Synthesis and write-up</div>
+      <div class="timeline-desc">Failure mode map. Assumption violation correlation analysis. Technical report draft.</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">lewm-control-analysis · 2026</div>
+  <ul class="footer-links">
+    <li><a href="https://arxiv.org/abs/2603.19312" target="_blank">LeWM Paper ↗</a></li>
+    <li><a href="https://github.com/lucas-maes/le-wm" target="_blank">LeWM Repo ↗</a></li>
+    <li><a href="https://github.com/galilai-group/stable-worldmodel" target="_blank">SWM Repo ↗</a></li>
+    <li><a href="https://github.com" target="_blank">This Project ↗</a></li>
+  </ul>
+</footer>
+
+</body>
+</html>

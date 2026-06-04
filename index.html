@@ -778,12 +778,12 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
   <div class="status-item">
     <div class="status-dot" style="background:#bc8cff"></div>
     <span class="label">Assumptions</span>
-    <span class="val">19 identified</span>
+    <span class="val">20 identified</span>
   </div>
   <div class="status-item">
     <div class="status-dot" style="background:#f0883e"></div>
     <span class="label">Eval Tests</span>
-    <span class="val">8 (5 testable, 3 gaps)</span>
+    <span class="val">Test 0 + 8 (5 testable, 3 gaps)</span>
   </div>
 </div>
 
@@ -794,13 +794,13 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
   <div class="about-grid">
     <div class="about-text">
       <p>LeWorldModel (LeWM) is a compact, 15-million-parameter robot learning system that plans actions by imagining future states in a learned latent space. Its authors describe its planning loop as inspired by Model Predictive Control — a classical control technique with decades of theory behind it.</p>
-      <p>This project asks: what does that planning loop actually look like when you put it under a control-theory microscope? We map every component of a classical MPC block diagram onto its LeWM equivalent, identify what's present, what's approximate, and what's entirely absent.</p>
-      <p>The goal is not to critique LeWM — it performs strongly on benchmarks. The goal is to use control theory as an analytical lens to reveal properties that success rates alone cannot show: stability, convergence behaviour, constraint handling, and the conditions under which planning fails.</p>
+      <p>More precisely, LeWM belongs to the family of Nonlinear MPC (NMPC): its plant model is a deep neural network, its cost landscape is non-convex, and its optimizer is a derivative-free sampling method (CEM) rather than a QP solver. This classification matters — it defines exactly which body of control theory is relevant, and which requirements LeWM does not yet satisfy.</p>
+      <p>This project asks: what does that planning loop actually look like when you put it under a control-theory microscope? We map every component of an MPC block diagram onto its LeWM equivalent, characterise the open-loop response before any closed-loop evaluation, and apply NMPC-appropriate stability and robustness tests. The goal is not to critique LeWM — it performs strongly on benchmarks. The goal is to understand it rigorously.</p>
     </div>
     <div class="about-aside">
       <div class="callout">
         <div class="callout-label">Key Finding</div>
-        <p>7 of 14 classical MPC components have no equivalent in LeWM. All three missing constraint mechanisms — hard input constraints, hard state constraints, and soft constraints — are structural gaps, not implementation choices.</p>
+        <p>7 of 14 classical MPC components have no equivalent in LeWM. All three missing constraint mechanisms are structural gaps. LeWM is most precisely classified as an <em>uncharacterised Nonlinear MPC</em> — none of the standard NMPC stability requirements are satisfied or tested.</p>
       </div>
       <div class="callout" style="border-color: var(--accent2)">
         <div class="callout-label" style="color: var(--accent2)">Approach</div>
@@ -841,8 +841,8 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
     <div class="rq-item">
       <div class="rq-num">RQ4</div>
       <div class="rq-content">
-        <div class="rq-title">Which of the 19 implicit assumptions are most frequently violated?</div>
-        <div class="rq-desc">We enumerate 19 assumptions the LeWM planner makes implicitly. For each that is empirically testable, we design a targeted experiment. Which assumptions hold? Which break most often? Which violations correlate with planning failure?</div>
+        <div class="rq-title">Which of the 20 implicit assumptions are most frequently violated?</div>
+        <div class="rq-desc">We enumerate 20 assumptions the LeWM planner makes implicitly. For each that is empirically testable, we design a targeted experiment. Which assumptions hold? Which break most often? Which violations correlate with planning failure?</div>
       </div>
     </div>
     <div class="rq-item">
@@ -858,10 +858,66 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
 <!-- EVALUATION -->
 <section id="evaluation">
   <div class="section-kicker">Evaluation Framework</div>
-  <h2 class="section-title">MATLAB MPC review tests — applied to LeWM</h2>
-  <p class="section-lead">The MATLAB MPC Toolbox runs eight standardised tests on any classical MPC controller. We use these as our evaluation basis — applying equivalent tests to LeWM and documenting the gaps where no equivalent exists.</p>
+  <h2 class="section-title">A three-horizon framework — and our scope</h2>
+  <p class="section-lead">A complete evaluation of a latent-space NMPC planner spans three distinct horizons. This project claims and demonstrates Horizon 2 in full. Horizons 1 and 3 are documented as the complete framework.</p>
+
+  <!-- THREE HORIZONS -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:48px">
+
+    <div style="padding:28px;background:var(--paper2);border:1px solid var(--rule);border-top:3px solid var(--accent2)">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;margin-bottom:6px">Horizon 1</div>
+      <div style="font-family:var(--serif);font-size:20px;font-weight:400;margin-bottom:10px">Design Evaluation</div>
+      <div style="font-size:13px;color:var(--ink2);font-weight:300;line-height:1.65;margin-bottom:16px">Was the controller built correctly according to NMPC theory? Pre-operational criteria that must hold for any closed-loop guarantee.</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:6px">
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--red)">✗</span>Terminal cost as CLF</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--red)">✗</span>Terminal constraint set</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--red)">✗</span>Input-to-State Stability</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--red)">✗</span>Horizon sufficiency proof</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--red)">✗</span>Plant-model mismatch bound</li>
+      </ul>
+      <div style="margin-top:16px;padding:8px 12px;background:rgba(200,75,31,0.06);border-left:2px solid var(--accent);font-size:11px;color:var(--ink3);font-family:var(--mono)">Status: documented gap — all absent in LeWM</div>
+    </div>
+
+    <div style="padding:28px;background:var(--paper2);border:1px solid var(--rule);border-top:3px solid var(--green)">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:6px">Horizon 2 — Our Scope</div>
+      <div style="font-family:var(--serif);font-size:20px;font-weight:400;margin-bottom:10px">Operational Evaluation</div>
+      <div style="font-size:13px;color:var(--ink2);font-weight:300;line-height:1.65;margin-bottom:16px">Does the running controller behave correctly? Runtime tests applied to the deployed planner — no retraining required.</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:6px">
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--green)">✓</span>Test 0: open-loop response</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--green)">✓</span>Convergence &amp; stability</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--green)">✓</span>Perturbation recovery</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--green)">✓</span>Manifold drift measurement</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--green)">✓</span>ISS &amp; horizon empirical tests</li>
+      </ul>
+      <div style="margin-top:16px;padding:8px 12px;background:rgba(45,106,79,0.08);border-left:2px solid var(--green);font-size:11px;color:var(--green);font-family:var(--mono)">Status: demonstrated in full</div>
+    </div>
+
+    <div style="padding:28px;background:var(--paper2);border:1px solid var(--rule);border-top:3px solid var(--gold)">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:6px">Horizon 3</div>
+      <div style="font-family:var(--serif);font-size:20px;font-weight:400;margin-bottom:10px">Deployment Evaluation</div>
+      <div style="font-size:13px;color:var(--ink2);font-weight:300;line-height:1.65;margin-bottom:16px">Does it hold up in the real world? Post-operational criteria requiring real robot hardware and out-of-distribution conditions.</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:6px">
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--gold)">→</span>Sim-to-real gap</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--gold)">→</span>Sensor noise &amp; distribution shift</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--gold)">→</span>Constraint satisfaction in real world</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--gold)">→</span>Contact uncertainty</li>
+        <li style="font-size:12px;color:var(--ink3);padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--gold)">→</span>Real-time replanning constraints</li>
+      </ul>
+      <div style="margin-top:16px;padding:8px 12px;background:rgba(184,134,11,0.06);border-left:2px solid var(--gold);font-size:11px;color:var(--gold);font-family:var(--mono)">Status: scoped as future work</div>
+    </div>
+
+  </div>
+
+  <!-- HORIZON 2 TESTS -->
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--ink3);text-transform:uppercase;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--rule)">Horizon 2 — Operational Tests in Detail</div>
 
   <div class="eval-grid">
+    <div class="eval-card" style="border-left: 3px solid var(--accent2); background: rgba(26,92,138,0.04)">
+      <div class="eval-tag" style="background:rgba(26,92,138,0.12);color:var(--accent2)">Test 0 — Prerequisite</div>
+      <div class="eval-card-mpc">Open-Loop Response (Camacho Ch.2)</div>
+      <div class="eval-card-title">Step & Impulse Response in Latent Space</div>
+      <div class="eval-card-desc">Apply constant action (step) or single large action (impulse) to the predictor. Compare predicted trajectory to real trajectory. The gap is a direct measure of plant model fidelity — must precede all closed-loop tests.</div>
+    </div>
     <div class="eval-card">
       <div class="eval-tag tag-testable">Testable — Day 1</div>
       <div class="eval-card-mpc">MPC Object Creation</div>
@@ -899,16 +955,22 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
       <div class="eval-card-desc">Compute SIGReg Gaussian log-likelihood of each predicted latent. Track off-manifold drift fraction across rollout depth and episode outcome.</div>
     </div>
     <div class="eval-card">
-      <div class="eval-tag tag-gap">Gap — document only</div>
-      <div class="eval-card-mpc">Hard MV Constraints</div>
-      <div class="eval-card-title">No Rate Constraints</div>
-      <div class="eval-card-desc">LeWM has no mechanism for rate-of-change constraints on actions. Structural gap — not an implementation choice.</div>
+      <div class="eval-tag tag-testable">Testable — Day 4</div>
+      <div class="eval-card-mpc">NMPC: ISS Empirical</div>
+      <div class="eval-card-title">Bounded Response to Disturbances</div>
+      <div class="eval-card-desc">Inject disturbances of increasing magnitude. Measure whether latent trajectory remains bounded. Empirical analogue of the Horizon 1 ISS criterion.</div>
+    </div>
+    <div class="eval-card">
+      <div class="eval-tag tag-testable">Testable — Day 5</div>
+      <div class="eval-card-mpc">NMPC: Horizon Sufficiency</div>
+      <div class="eval-card-title">Performance vs Horizon Length</div>
+      <div class="eval-card-desc">Run evaluation at horizons 5, 10, 15, 20. Plot success rate and convergence speed. Identifies minimum reliable horizon — empirical analogue of Horizon 1 horizon sufficiency proof.</div>
     </div>
     <div class="eval-card">
       <div class="eval-tag tag-gap">Gap — document only</div>
-      <div class="eval-card-mpc">Other Hard Constraints</div>
-      <div class="eval-card-title">No State Constraints</div>
-      <div class="eval-card-desc">No forbidden regions in latent or physical state space. Ghost points — off-manifold latents — are visited silently without penalty.</div>
+      <div class="eval-card-mpc">Hard MV + State Constraints</div>
+      <div class="eval-card-title">No Constraints in LeWM</div>
+      <div class="eval-card-desc">No rate constraints, no state constraints, no feasibility checking. Structural gaps documented — not implementation choices.</div>
     </div>
   </div>
 </section>
@@ -916,8 +978,8 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
 <!-- ASSUMPTIONS -->
 <section id="assumptions">
   <div class="section-kicker">Implicit Assumptions</div>
-  <h2 class="section-title">19 assumptions the planner makes without stating them</h2>
-  <p class="section-lead">Structural analysis of the LeWM planning loop reveals 19 assumptions that are never formally stated in the paper. Each is a potential failure mode and a research question.</p>
+  <h2 class="section-title">20 assumptions the planner makes without stating them</h2>
+  <p class="section-lead">Structural analysis of the LeWM planning loop reveals 20 assumptions never formally stated in the paper. Each is a potential failure mode and a research question.</p>
 
   <div class="assumptions-grid">
     <div class="assumption-group">
@@ -929,15 +991,16 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
       </ol>
     </div>
     <div class="assumption-group">
-      <div class="assumption-group-title">Plant Model (A4–A6)</div>
+      <div class="assumption-group-title">Plant Model (A4–A7)</div>
       <ol>
         <li>Predictor is a good one-step approximation</li>
         <li>Errors do not grow catastrophically</li>
         <li>Dynamics are deterministic</li>
+        <li>No external disturbances — process noise, unexpected contacts, and model mismatch are not modelled</li>
       </ol>
     </div>
     <div class="assumption-group">
-      <div class="assumption-group-title">Encoder (A7–A9)</div>
+      <div class="assumption-group-title">Encoder (A8–A10)</div>
       <ol>
         <li>Observations are clean and consistent</li>
         <li>Each frame encodes independently</li>
@@ -945,7 +1008,7 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
       </ol>
     </div>
     <div class="assumption-group">
-      <div class="assumption-group-title">Optimizer (A10–A12)</div>
+      <div class="assumption-group-title">Optimizer (A11–A13)</div>
       <ol>
         <li>CEM finds good solution in 30 iterations</li>
         <li>300 samples adequately cover action space</li>
@@ -953,7 +1016,7 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
       </ol>
     </div>
     <div class="assumption-group">
-      <div class="assumption-group-title">Control Loop (A13–A16)</div>
+      <div class="assumption-group-title">Control Loop (A14–A17)</div>
       <ol>
         <li>Replanning every step is sufficient</li>
         <li>Horizon of 10 steps is adequate</li>
@@ -962,7 +1025,7 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
       </ol>
     </div>
     <div class="assumption-group">
-      <div class="assumption-group-title">Stability (A17–A19)</div>
+      <div class="assumption-group-title">Stability (A18–A20)</div>
       <ol>
         <li>Closed loop converges to goal</li>
         <li>Encoder and planning errors are independent</li>
@@ -1033,7 +1096,7 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
       <div class="timeline-dot dot-done"></div>
       <div class="timeline-week">Week 0 — Setup</div>
       <div class="timeline-title">Conceptual foundation and proposal</div>
-      <div class="timeline-desc">MPC structural mapping, 19 implicit assumptions identified, evaluation framework derived from MATLAB MPC review tests. Proposal v2 completed.</div>
+      <div class="timeline-desc">LeWM classified as Nonlinear MPC. MPC structural mapping completed. 20 implicit assumptions identified including disturbance model. Test 0 (open-loop response) added as prerequisite evaluation. Proposal v2 completed.</div>
     </div>
     <div class="timeline-item">
       <div class="timeline-dot dot-active"></div>
@@ -1074,6 +1137,7 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
   <ul class="footer-links">
     <li><a href="https://arxiv.org/abs/2603.19312" target="_blank">LeWM Paper ↗</a></li>
     <li><a href="https://github.com/lucas-maes/le-wm" target="_blank">LeWM Repo ↗</a></li>
+    <li><a href="https://link.springer.com/book/10.1007/978-0-85729-398-5" target="_blank">Camacho MPC ↗</a></li>
     <li><a href="https://github.com/galilai-group/stable-worldmodel" target="_blank">SWM Repo ↗</a></li>
     <li><a href="https://github.com" target="_blank">This Project ↗</a></li>
   </ul>

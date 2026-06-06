@@ -637,6 +637,7 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
     <li><a href="#about">About</a></li>
     <li><a href="#questions">Research</a></li>
     <li><a href="#evaluation">Evaluation</a></li>
+    <li><a href="#findings">Findings</a></li>
     <li><a href="#artefacts">Artefacts</a></li>
     <li><a href="#timeline">Progress</a></li>
     <li><a href="https://github.com" target="_blank">GitHub ↗</a></li>
@@ -1035,6 +1036,45 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
   </div>
 </section>
 
+<!-- FINDINGS -->
+<section id="findings" style="background:var(--paper2)">
+  <div class="section-kicker">Empirical Findings — Day 3</div>
+  <h2 class="section-title">What we found so far</h2>
+  <p class="section-lead">First results from the operational evaluation of LeWM on Push-T. 50 fixed episodes, ~70% mean success rate.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:32px">
+
+    <div style="padding:28px;background:var(--paper);border:1px solid var(--rule);border-top:3px solid var(--red)">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--red);text-transform:uppercase;margin-bottom:8px">Assumption 3 — Violated</div>
+      <div style="font-family:var(--serif);font-size:19px;font-weight:400;margin-bottom:10px">Latent distance ≠ physical progress</div>
+      <div style="font-size:13px;color:var(--ink2);font-weight:300;line-height:1.65">Pearson r = 0.18 between latent and physical distance. Latent trajectories are indistinguishable between successful and failed episodes. The planner's core metric does not reliably reflect task progress.</div>
+    </div>
+
+    <div style="padding:28px;background:var(--paper);border:1px solid var(--rule);border-top:3px solid var(--red)">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--red);text-transform:uppercase;margin-bottom:8px">Finding 2</div>
+      <div style="font-family:var(--serif);font-size:19px;font-weight:400;margin-bottom:10px">Success determined by initial conditions</div>
+      <div style="font-size:13px;color:var(--ink2);font-weight:300;line-height:1.65">Successful episodes start physically closer to the goal (~220 units) vs failures (~300 units). The separation is visible from the first planning step and persists. The planner does not adapt its strategy to task difficulty.</div>
+    </div>
+
+    <div style="padding:28px;background:var(--paper);border:1px solid var(--rule);border-top:3px solid var(--accent)">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:8px">Assumptions 6 + 19 — Violated</div>
+      <div style="font-family:var(--serif);font-size:19px;font-weight:400;margin-bottom:10px">Non-determinism and warm-start bleed</div>
+      <div style="font-size:13px;color:var(--ink2);font-weight:300;line-height:1.65">GPU non-determinism produces 60–80% success rate variance across identical runs (A6). Warm-start state bleeds across episodes introducing inter-episode dependency (A19). Both require statistical treatment of results.</div>
+    </div>
+
+  </div>
+
+  <div style="padding:24px;background:var(--paper);border:1px solid var(--rule);border-left:3px solid var(--accent2)">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;margin-bottom:8px">Assumptions status after Day 3</div>
+    <div style="display:flex;gap:32px;flex-wrap:wrap">
+      <div style="font-size:13px;color:var(--ink2)"><span style="color:var(--red);font-weight:600">Violated (4):</span> A3, A6, A13, A19</div>
+      <div style="font-size:13px;color:var(--ink2)"><span style="color:var(--green);font-weight:600">Held (4):</span> A7, A15, A16, A20</div>
+      <div style="font-size:13px;color:var(--ink2)"><span style="color:var(--gold);font-weight:600">Partial (2):</span> A17, A15</div>
+      <div style="font-size:13px;color:var(--ink3)"><span style="font-weight:600">Unknown (10):</span> pending Days 4–5</div>
+    </div>
+  </div>
+</section>
+
 <!-- ARTEFACTS -->
 <section id="artefacts">
   <div class="section-kicker">Project Artefacts</div>
@@ -1044,7 +1084,24 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
   <div class="artefacts-list">
     <a href="#" class="artefact-row">
       <div class="artefact-info">
-        <div class="artefact-name">Project Proposal v2</div>
+        <div class="artefact-name">Living Project Report</div>
+        <div class="artefact-desc">Accumulating empirical findings — assumption tracker, Day 3 results, evaluation framework status</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="artefact-type">DOCX · Updated June 2026</div>
+        <div class="artefact-arrow">→</div>
+      </div>
+    </a>
+    <a href="#" class="artefact-row">
+      <div class="artefact-info">
+        <div class="artefact-name">Day 3 Report — Latent Distance as Planning Signal</div>
+        <div class="artefact-desc">Goal, instrumentation strategy, findings: Assumption 3 violated, r=0.18, success determined by initial conditions</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="artefact-type">Markdown · June 2026</div>
+        <div class="artefact-arrow">→</div>
+      </div>
+    </a>
         <div class="artefact-desc">Full research proposal including MPC mapping, 19 assumptions, and evaluation framework</div>
       </div>
       <div style="display:flex;align-items:center;gap:16px">
@@ -1101,8 +1158,8 @@ footer .footer-links a:hover { color: rgba(247,244,238,0.85); }
     <div class="timeline-item">
       <div class="timeline-dot dot-active"></div>
       <div class="timeline-week">Week 1 — In progress</div>
-      <div class="timeline-title">Environment setup and first measurement</div>
-      <div class="timeline-desc">Clone LeWM and stable-worldmodel repositories. Load pretrained checkpoint. Run vanilla CEM evaluation on Push-T. First plot: latent distance to goal vs MPC timestep.</div>
+      <div class="timeline-title">Instrumentation and first findings</div>
+      <div class="timeline-desc">Day 1: environment setup complete, vanilla eval running at ~70% success on Push-T. Day 3: latent distance instrumentation complete. Key finding — <strong>Assumption 3 violated</strong>: Pearson r = 0.18 between latent and physical distance. Latent distance trajectories are indistinguishable between successful and failed episodes. Success is largely determined by initial physical conditions, not planning quality. Also found: GPU non-determinism violates Assumption 6; warm-start bleed violates Assumption 19.</div>
     </div>
     <div class="timeline-item">
       <div class="timeline-dot dot-todo"></div>
